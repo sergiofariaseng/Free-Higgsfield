@@ -1,0 +1,32 @@
+{
+  "name": "free-higgsfield-studio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "verify": "node scripts/verify-endpoints.mjs",
+    "discover": "node scripts/discover-models.mjs",
+    "build:registry": "node scripts/build-registry.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "tsx": "^4.20.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

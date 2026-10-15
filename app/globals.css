@@ -1,0 +1,242 @@
+@import "tailwindcss";
+
+/*
+ * Diogo Automates — dark studio theme.
+ *
+ * Dark-only on purpose: it's a media viewer, and a light surface changes how
+ * generated images read. Surfaces are layered rather than flat so panels sit
+ * above the page instead of being drawn on it.
+ */
+:root {
+  --font-geist-sans: Arial, Helvetica, sans-serif;
+  --font-geist-mono: ui-monospace, monospace;
+  /* Surfaces, darkest to lightest. */
+  --bg: #07080a;
+  --bg-2: #0a0c0f;
+  --panel: #0f1116;
+  --panel-2: #15181f;
+  --panel-3: #1c2028;
+
+  --edge: #262b34;
+  --edge-soft: #1a1e25;
+
+  --text: #f4f6f8;
+  --text-2: #c3cad4;
+  --muted: #8f98a5;
+  --faint: #616b78;
+
+  /* Blue is the action colour, used sparingly — if everything is accented,
+     nothing is. Pink is the secondary and marks video at a glance.
+     Both stay bright and pair with near-black ink rather than white: on a dark
+     UI a blue dark enough to carry white text reads muted and dead, while a
+     bright chip with dark text keeps its punch and still clears 7:1. */
+  --accent: #5b9dff;
+  --accent-ink: #04101d;
+  --accent-dim: #3d7fd6;
+  --accent-2: #ff7ab8;
+  --video: var(--accent-2);
+
+  /* Glows as variables, so a repalette stays a single block of edits. */
+  --glow: rgb(91 157 255 / 0.55);
+  --glow-soft: rgb(91 157 255 / 0.22);
+  --glow-2: rgb(255 122 184 / 0.5);
+
+  --danger: #ff7a7a;
+  --warn: #ffc061;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-3: var(--panel-3);
+  --color-edge: var(--edge);
+  --color-edge-soft: var(--edge-soft);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-2: var(--accent-2);
+  --color-video: var(--video);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+
+  /* A real type scale. Seven deliberate steps, rather than a dozen sizes all
+     clustered together where nothing can read as important.
+
+     Every size in the app resolves through these tokens — there are no
+     hardcoded pixel sizes left — so adjusting the whole app's type means
+     editing this block and nothing else. */
+  --text-2xs: 0.75rem;     /* 12px — badges, overlines */
+  --text-2xs--line-height: 1.4;
+  --text-xs: 0.8125rem;    /* 13px — captions, helper text */
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;     /* 14px — secondary body, controls */
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;       /* 16px — body, prompt input */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.25rem;      /* 20px — card titles */
+  --text-lg--line-height: 1.35;
+  --text-xl: 1.5rem;       /* 24px — page titles */
+  --text-xl--line-height: 1.25;
+  --text-2xl: 1.875rem;    /* 30px — stat figures */
+  --text-2xl--line-height: 1.15;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Numerals carry weight — the dashboard figures and costs are what people
+   actually scan for. */
+.font-mono {
+  font-weight: 500;
+}
+
+body {
+  /* Geist is variable, so the base sits at 450 rather than 400: a small lift
+     that makes body copy read solid on a dark background. */
+  font-weight: 450;
+  background:
+    radial-gradient(80rem 34rem at 22% -14rem, rgb(91 157 255 / 0.05), transparent 68%),
+    radial-gradient(70rem 30rem at 82% -12rem, rgb(255 122 184 / 0.035), transparent 68%),
+    linear-gradient(var(--bg-2), var(--bg) 40rem);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fine grain. Nearly invisible alone, but it stops large dark areas banding. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--panel-3);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--edge);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: rgb(91 157 255 / 0.3);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 2px;
+}
+
+/* Text fields are exempt. Browsers treat them as focus-visible even on a plain
+   mouse click, so the global ring would fire every time you click the prompt
+   and draw a heavy box around it. The caret is the conventional indicator. */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise {
+  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+.pop { animation: pop 0.16s cubic-bezier(0.22, 1, 0.36, 1); }
+.fade-in { animation: fade 0.5s ease both; }
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(var(--panel-2), var(--panel));
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.045), transparent);
+  animation: shimmer 1.8s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- masonry */
+
+/*
+ * Column masonry, so results keep the ratio they were generated at. Tiles used
+ * to be cropped to squares, which meant a 9:16 portrait lost its top and
+ * bottom. Columns pack with no JS measuring and no layout shift, because each
+ * tile's ratio is known up front from its own params.
+ */
+.masonry { column-gap: 0.75rem; columns: 2; }
+@media (min-width: 640px)  { .masonry { columns: 3; } }
+@media (min-width: 1280px) { .masonry { columns: 4; } }
+@media (min-width: 1800px) { .masonry { columns: 5; } }
+.masonry > * { break-inside: avoid; margin-bottom: 0.75rem; }
+
+.masonry-tight { column-gap: 0.625rem; columns: 3; }
+@media (min-width: 640px)  { .masonry-tight { columns: 4; } }
+@media (min-width: 1024px) { .masonry-tight { columns: 5; } }
+@media (min-width: 1280px) { .masonry-tight { columns: 6; } }
+.masonry-tight > * { break-inside: avoid; margin-bottom: 0.625rem; }
+
+/* The brand mark carries both accents; everything else picks one. */
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+}
