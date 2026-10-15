@@ -28,6 +28,16 @@ A autenticação segue o [SDK oficial Higgsfield](https://github.com/higgsfield-
 
 Não coloque chaves em variáveis `NEXT_PUBLIC_*`, código-fonte ou arquivos do GitHub. A tela de configurações mostra o estado das conexões, nunca os valores das chaves. Trocar senha ou segredo de sessão invalida os logins anteriores. O limitador de tentativas de login é por instância; para proteção adicional distribuída, configure uma regra de rate limiting no Vercel Firewall para `/api/auth/login`.
 
+## Genjutsu Motion Transfer
+
+Em **Vídeo**, abra o seletor de modelos e escolha **Genjutsu → Genjutsu Motion Transfer**. Adicione um vídeo de movimento e de 1 a 8 imagens de aparência. A descrição é opcional. Escolha 480p, 720p ou 1080p e clique em **Gerar**.
+
+O vídeo precisa ter pelo menos 4 segundos. O provedor usa apenas os primeiros 30 segundos quando o original é maior. Uploads aceitam MP4 e imagens JPEG, PNG, WebP ou GIF, até 4 MB por arquivo; arquivos maiores podem ser informados por links HTTPS diretos que abram a mídia sem login. A duração de MP4 local é verificada antes do upload; vídeos por link são validados pelo provedor.
+
+Preços de tabela antes de descontos: US$ 0,318/s em 480p, US$ 0,681/s em 720p e US$ 1,632/s em 1080p, com segundos arredondados para cima. O valor exibido a partir da duração local é informativo. Se a API não fornecer uma estimativa, um limite de gastos ativo continua impedindo o envio sem orçamento.
+
+O resultado segue o mesmo salvamento em `media/videos/` e aparece na biblioteca após persistir no GitHub. A integração usa a chave `HF_KEY` já configurada, sem novas variáveis. Modelo e parâmetros seguem a [documentação oficial do Genjutsu](https://dash.higgsfield.ai/models/higgsfield/genjutsu/motion-transfer/v1.0/llms.txt).
+
 ## Onde ficam os arquivos
 
 Na branch de armazenamento:

@@ -21,6 +21,7 @@
  */
 
 import { CATALOG } from "./catalog";
+import { GENJUTSU } from "./genjutsu";
 import { modelText, paramLabel } from "./locale";
 
 export type ParamType = "enum" | "int" | "float" | "bool" | "seed" | "text";
@@ -45,6 +46,9 @@ export interface ModelDef {
   family?: string;
   vendor: string;
   kind: "image" | "video";
+  referenceMode?: "motion-transfer";
+  promptOptional?: boolean;
+  priceUnit?: "second";
   /** Endpoint used when no reference image is attached. */
   endpoint: string;
   /** Endpoint swapped in when a reference image is attached. */
@@ -657,6 +661,9 @@ export const MODELS: ModelDef[] = (() => {
   const byEndpoint = new Map<string, ModelDef>();
   for (const m of CATALOG) byEndpoint.set(m.endpoint, m);
   for (const m of EXTRAS) byEndpoint.set(m.endpoint, m);
+  // Genjutsu follows its published schema, supplied separately from the
+  // older discovered catalogue. Do not claim a live provider validation.
+  byEndpoint.set(GENJUTSU.endpoint, GENJUTSU);
   return [...byEndpoint.values()].map((model) => ({
     ...model,
     blurb: modelText(model.blurb),
@@ -722,7 +729,7 @@ export function attachmentFallback(
   refKind: "image" | "video" | "audio" = "image",
 ): ModelDef | undefined {
   return MODELS.find(
-    (m) => m.kind === kind && supportsAttachment(m) && (m.refKind ?? "image") === refKind,
+    (m) => !m.referenceMode && m.kind === kind && supportsAttachment(m) && (m.refKind ?? "image") === refKind,
   );
 }
 

@@ -18,6 +18,7 @@ import { formatUsd } from "@/lib/shared";
 import { kindLabel, errorLabel } from "@/lib/locale";
 import ParamPill from "./ParamPill";
 import Popover from "./Popover";
+import GenjutsuInputs, { type MediaReference } from "./GenjutsuInputs";
 
 /**
  * The floating bottom-centre composer.
@@ -26,13 +27,6 @@ import Popover from "./Popover";
  * Higgsfield's models disagree about nearly everything — Soul takes
  * `num_images` and 2K/4K, Soul Reference takes `batch_size` and 720p/1080p.
  */
-
-interface Ref {
-  url: string;
-  name: string;
-  preview: string;
-  kind: "image" | "video" | "audio";
-}
 
 export default function PromptBar({
   kind,
@@ -45,10 +39,13 @@ export default function PromptBar({
   const [modelId, setModelId] = useState(available[0].id);
   const model = getModel(modelId) ?? available[0];
 
+  const motionTransfer = model.referenceMode === "motion-transfer";
+  const previousModel = useRef(model);
+
   const [prompt, setPrompt] = useState("");
   const [params, setParams] = useState<Record<string, unknown>>(() => defaultParams(model));
   const [batch, setBatch] = useState(1);
-  const [refs, setRefs] = useState<Ref[]>([]);
+  const [refs, setRefs] = useState<MediaReference[]>([]);
 
   const [estimate, setEstimate] = useState<number | null>(null);
   // Model id -> why it can't be used. Filled in as estimates come back, so the
@@ -73,7 +70,10 @@ export default function PromptBar({
   useEffect(() => {
     setParams(defaultParams(model));
     setBatch(model.batchOptions?.[0] ?? 1);
-    if (!supportsAttachment(model)) setRefs([]);
+    if (!supportsAttachment(model) || previousModel.current.referenceMode !== model.referenceMode) setRefs([]);
+    previousModel.current = model;
+    setMetered(null);
+    setError(null);
     setEstimate(null);
   }, [model]);
 
@@ -112,23 +112,28 @@ export default function PromptBar({
     (d) => d.required && d.default === undefined && !params[d.key],
   );
 
+  const referencesReady = motionTransfer
+    ? refs.filter(r => r.kind === "video").length === 1 && refs.filter(r => r.kind === "image").length >= 1 && refs.filter(r => r.kind === "image").length <= 8
+    : !model.refRequired || refs.length > 0;
+
   const canSubmit =
-    prompt.trim().length > 0 &&
+    (model.promptOptional || prompt.trim().length > 0) &&
     !busy &&
     !uploading &&
     !blocked &&
     missing.length === 0 &&
-    (!model.refRequired || refs.length > 0);
+    referencesReady;
 
   const payload = useCallback(
     () => ({
       modelId: model.id,
-      prompt: prompt.trim() || "placeholder",
+      prompt: prompt.trim() || (model.promptOptional ? "" : "placeholder"),
       params,
       batch,
-      refUrls: refs.map((r) => r.url),
+      refUrls: refs.filter(r => !motionTransfer || r.kind === "image").map(r => r.url),
+      ...(motionTransfer ? { videoUrl: refs.find(r => r.kind === "video")?.url } : {}),
     }),
-    [model.id, prompt, params, batch, refs],
+    [model, motionTransfer, prompt, params, batch, refs],
   );
 
   // Debounced pricing. Deliberately keyed off everything except prompt text —
@@ -137,11 +142,12 @@ export default function PromptBar({
     m: model.id,
     p: params,
     b: batch,
-    r: refs.length,
+    r: refs.map(r => [r.kind, r.url]),
+    uploading,
   });
 
   useEffect(() => {
-    if (model.refRequired && refs.length === 0) return;
+    if (!referencesReady || uploading) { setEstimate(null); setMetered(null); setEstimating(false); return; }
     let cancelled = false;
     setEstimating(true);
 
@@ -286,6 +292,7 @@ export default function PromptBar({
   // Images can arrive by drop or paste anywhere on the page, not just through
   // the file picker — the picker alone made attachments easy to miss entirely.
   useEffect(() => {
+    if (motionTransfer) return;
     let depth = 0;
     const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
     const onEnter = (e: DragEvent) => { if (hasFiles(e)) { depth += 1; setDragging(true); } };
@@ -322,7 +329,7 @@ export default function PromptBar({
       window.removeEventListener("paste", onPaste);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, refs.length, kind]);
+  }, [model, refs.length, kind, motionTransfer]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key !== "Enter") return;
@@ -398,7 +405,7 @@ export default function PromptBar({
           </div>
         )}
 
-        {refs.length > 0 && (
+        {!motionTransfer && refs.length > 0 && (
           <div className="flex flex-wrap gap-2 border-b border-edge-soft px-4 py-3">
             {refs.map((r, i) => (
               <div key={r.url} className="group relative size-14 overflow-hidden rounded-lg border border-edge">
@@ -440,7 +447,10 @@ export default function PromptBar({
           </div>
         )}
 
+        {motionTransfer && <div className="max-h-[45dvh] overflow-y-auto"><GenjutsuInputs refs={refs} setRefs={setRefs} uploading={uploading} setUploading={setUploading} onError={setError} resolution={String(params.resolution ?? "720p")} /></div>}
+
         <div className="flex items-start gap-3 px-4 pt-3.5">
+          {!motionTransfer && <>
           <button
             type="button"
             disabled={uploading}
@@ -468,6 +478,7 @@ export default function PromptBar({
             className="hidden"
             onChange={(e) => attach(e.target.files)}
           />
+          </>}
 
           <textarea
             ref={textarea}
@@ -475,8 +486,8 @@ export default function PromptBar({
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Descreva a cena que você imagina"
-            className="mt-1 max-h-[132px] min-h-6 flex-1 resize-none bg-transparent text-base leading-6 text-text outline-none placeholder:text-faint"
+            placeholder={motionTransfer ? "Descreva a transformação (opcional)" : "Descreva a cena que você imagina"}
+            className="mt-1 max-h-[132px] min-h-6 min-w-0 flex-1 resize-none bg-transparent text-base leading-6 text-text outline-none placeholder:text-faint"
           />
 
           <button
@@ -503,7 +514,7 @@ export default function PromptBar({
           <ModelPicker
             models={available}
             current={model}
-            onPick={setModelId}
+            onPick={id => { if (!uploading && !busy) { setSwitchedNote(null); setModelId(id); } }}
             unavailable={unavailable}
             kind={kind}
           />
@@ -557,13 +568,13 @@ function ModelPicker({
   function price(m: ModelDef) {
     if (unavailable[m.id]) return "indisponível";
     if (m.metered) return "por uso";
-    return m.fromUsd ? `a partir de ${formatUsd(m.fromUsd)}` : "—";
+    return m.fromUsd ? `a partir de ${formatUsd(m.fromUsd)}${m.priceUnit === "second" ? "/s" : ""}` : "—";
   }
 
   return (
     <Popover label="" value={`${currentFamily} · ${current.name}`}>
       {(close) => (
-        <div className="w-80">
+        <div className="w-80 max-w-[calc(100vw-120px)]">
           {family === null ? (
             <>
               <p className="px-3 pt-1.5 pb-2 text-2xs font-semibold tracking-[0.08em] text-faint uppercase">
@@ -589,7 +600,7 @@ function ModelPicker({
                         <span className="block text-sm font-semibold text-text">{f}</span>
                         <span className="block text-xs text-faint">
                           {inFamily.length} {inFamily.length === 1 ? "opção" : "opções"}
-                          {cheapest?.fromUsd ? ` · a partir de ${formatUsd(cheapest.fromUsd)}` : ""}
+                          {cheapest?.fromUsd ? ` · a partir de ${formatUsd(cheapest.fromUsd)}${cheapest.priceUnit === "second" ? "/s" : ""}` : ""}
                         </span>
                       </span>
                       <span className="shrink-0 text-faint">›</span>
@@ -623,7 +634,7 @@ function ModelPicker({
                       m.id === current.id ? "bg-panel-3" : "hover:bg-panel-2"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span
                         className={`text-sm font-semibold ${
                           unavailable[m.id] ? "text-faint line-through" : "text-text"

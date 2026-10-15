@@ -210,3 +210,52 @@ test("official and legacy Higgsfield pairs work without mixing incomplete creden
   delete process.env.HF_API_KEY_ID;
   assert.equal(credentials(),null);
 });
+
+test("Genjutsu queues its exact mixed input and persists completed video in the GitHub library", async () => {
+  const fallback = global.fetch;
+  const input = { prompt: "", video_url: "https://media.example.com/motion.mp4", image_urls: ["https://media.example.com/character.jpg"], resolution: "1080p" };
+  const videoBytes = Buffer.from("mock-mp4-result");
+  let sent = 0;
+  global.fetch = async (url, init) => {
+    const parsed = new URL(String(url));
+    if (parsed.hostname === "api.higgsfield.ai" && parsed.pathname.endsWith("/higgsfield/genjutsu/motion-transfer/v1.0")) {
+      assert.deepEqual(JSON.parse(String(init?.body)), input);
+      if (parsed.pathname.startsWith("/estimate/")) return json({ usd: "6.528", credits: "1" });
+      sent++;
+      return json({ request_id: "genjutsu-1", status: "queued" });
+    }
+    if (parsed.pathname === "/requests/genjutsu-1/status") return json({ request_id: "genjutsu-1", status: "completed", video: { url: "https://outputs.example.com/result.mp4" } });
+    if (parsed.href === "https://outputs.example.com/result.mp4") return new Response(videoBytes, { headers: { "content-type": "video/mp4" } });
+    return fallback(url, init);
+  };
+  const response = await generate(new Request("http://localhost/api/generate", { method: "POST", body: JSON.stringify({
+    modelId: "genjutsu-motion-transfer", videoUrl: input.video_url, refUrls: input.image_urls, params: { resolution: "1080p" }
+  }) }));
+  assert.equal(response.status, 200, await response.clone().text());
+  await runWorker();
+  await mutate(s => { s.jobs[0].next_poll_at = 0; });
+  await runWorker();
+  await runWorker();
+  const job = (await readState()).jobs[0];
+  assert.equal(job.status, "completed");
+  assert.equal(job.model_name, "Genjutsu Motion Transfer");
+  assert.deepEqual(job.params, input);
+  assert.equal(job.outputs[0].kind, "video");
+  const file = job.outputs[0].local_path!;
+  assert.match(file, /^media\/videos\/.*\.mp4$/);
+  assert.deepEqual(blobs.get(trees.get(commits.get(head)!.tree.sha)![file]), videoBytes);
+  await runWorker();
+  assert.equal(sent, 1);
+});
+
+test("missing Genjutsu estimate endpoint does not incorrectly disable documented generation", async () => {
+  const { POST: quote } = await import("../app/api/estimate/route");
+  global.fetch = async () => json({ detail: "Not found" }, 404);
+  const response = await quote(new Request("http://localhost/api/estimate", { method: "POST", body: JSON.stringify({
+    modelId: "genjutsu-motion-transfer", videoUrl: "https://media.example.com/video.mp4", refUrls: ["https://media.example.com/image.jpg"]
+  }) }));
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.usd, null);
+  assert.notEqual(body.available, false);
+});

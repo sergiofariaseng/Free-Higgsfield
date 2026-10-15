@@ -14,8 +14,10 @@ export const runtime = "nodejs";
  * instead of failing at generation time.
  */
 export async function POST(req: Request) {
+  let motionTransfer = false;
   try {
-    const { endpoint, body } = parseGenerationRequest(await req.json());
+    const { endpoint, body, model } = parseGenerationRequest(await req.json());
+    motionTransfer = model.referenceMode === "motion-transfer";
     const result = await estimate(endpoint, body);
 
     if (isMetered(result)) {
@@ -39,6 +41,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }
     if (err instanceof HiggsfieldError) {
+      // Genjutsu documents submission, but not an estimate endpoint. A missing
+      // quote must not be presented as proof that the account lacks this model.
+      if (motionTransfer && err.status === 404) {
+        return NextResponse.json({ usd: null, note: "Estimativa indisponível; consulte o preço por segundo." });
+      }
       const reason = unavailableReason(err);
       if (reason) return NextResponse.json({ available: false, reason });
       return NextResponse.json({ error: err.message }, { status: err.status });
