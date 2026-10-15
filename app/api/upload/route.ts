@@ -1,3 +1,4 @@
+import { mp4Metadata, videoProof } from "@/lib/video-metadata";
 import { NextResponse } from "next/server";
 import { HiggsfieldError, MissingCredentialsError, uploadFile } from "@/lib/higgsfield";
 
@@ -47,13 +48,15 @@ export async function POST(req: Request) {
     // Higgsfield only issues WAV upload URLs, so normalise the browser's
     // occasional audio/x-wav before asking for one.
     const contentType = file.type === "audio/x-wav" ? "audio/wav" : file.type;
-    const url = await uploadFile(await file.arrayBuffer(), contentType);
+    const bytes = await file.arrayBuffer();
+    const metadata = contentType === "video/mp4" ? mp4Metadata(bytes) : null;
+    const url = await uploadFile(bytes, contentType);
     const kind = contentType.startsWith("video/")
       ? "video"
       : contentType.startsWith("audio/")
         ? "audio"
         : "image";
-    return NextResponse.json({ url, kind });
+    return NextResponse.json({ url, kind, ...(metadata ? { duration: metadata.duration, videoMetadata: videoProof(url, metadata) } : {}) });
   } catch (err) {
     if (err instanceof MissingCredentialsError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

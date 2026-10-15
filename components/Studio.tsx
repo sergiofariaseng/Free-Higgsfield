@@ -1,5 +1,6 @@
 "use client";
 
+import VideoStudio from "./VideoStudio";
 import PromptBar from "./PromptBar";
 import ResultGrid from "./ResultGrid";
 import { useJobs } from "./useJobs";
@@ -7,6 +8,8 @@ import { useJobs } from "./useJobs";
 /** Image and Video pages are the same surface over a different model set. */
 export default function Studio({ kind }: { kind: "image" | "video" }) {
   const { jobs, loaded, refresh, error } = useJobs(kind);
+
+  if (kind === "video") return <VideoStudio jobs={jobs} loaded={loaded} error={error} refresh={refresh} />;
 
   return (
     <div className="flex h-full flex-col">

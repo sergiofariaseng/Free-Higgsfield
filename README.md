@@ -30,13 +30,25 @@ Não coloque chaves em variáveis `NEXT_PUBLIC_*`, código-fonte ou arquivos do 
 
 ## Genjutsu Motion Transfer
 
-Em **Vídeo**, abra o seletor de modelos e escolha **Genjutsu → Genjutsu Motion Transfer**. Adicione um vídeo de movimento e de 1 a 8 imagens de aparência. A descrição é opcional. Escolha 480p, 720p ou 1080p e clique em **Gerar**.
+Em **Vídeo → Criar vídeo**, selecione **Genjutsu Motion Transfer** no campo **Modelo de IA**. Adicione um vídeo de movimento e de 1 a 8 imagens de aparência. A descrição é opcional. Escolha 480p, 720p ou 1080p, confira a cotação e clique em **GERAR VÍDEO** para revisar e confirmar.
 
 O vídeo precisa ter pelo menos 4 segundos. O provedor usa apenas os primeiros 30 segundos quando o original é maior. Uploads aceitam MP4 e imagens JPEG, PNG, WebP ou GIF, até 4 MB por arquivo; arquivos maiores podem ser informados por links HTTPS diretos que abram a mídia sem login. A duração de MP4 local é verificada antes do upload; vídeos por link são validados pelo provedor.
 
-Preços de tabela antes de descontos: US$ 0,318/s em 480p, US$ 0,681/s em 720p e US$ 1,632/s em 1080p, com segundos arredondados para cima. O valor exibido a partir da duração local é informativo. Se a API não fornecer uma estimativa, um limite de gastos ativo continua impedindo o envio sem orçamento.
+Preços de tabela antes de descontos: US$ 0,318/s em 480p, US$ 0,681/s em 720p e US$ 1,632/s em 1080p, com segundos arredondados para cima. A API de estimativa tem prioridade. Quando ela não fornecer um preço, o servidor pode calcular a tarifa publicada usando a duração extraída dos bytes do MP4 enviado (assinada e vinculada à URL), sem confiar em uma duração arbitrária informada pelo navegador. O cálculo limita a duração a 30 s e arredonda para o próximo segundo. Para links externos sem metadados verificados, é necessária uma cotação da API. Este valor de tabela é identificado como anterior a descontos; não é a fatura final.
 
 O resultado segue o mesmo salvamento em `media/videos/` e aparece na biblioteca após persistir no GitHub. A integração usa a chave `HF_KEY` já configurada, sem novas variáveis. Modelo e parâmetros seguem a [documentação oficial do Genjutsu](https://dash.higgsfield.ai/models/higgsfield/genjutsu/motion-transfer/v1.0/llms.txt).
+
+## Configuração e confirmação de vídeos
+
+A tela de vídeos tem controles visuais de duração, proporção e resolução, além dos demais parâmetros do modelo em **Mais configurações**. As opções vêm do catálogo de capacidades do aplicativo; o backend valida tipos, enums, limites e parâmetros não suportados antes de consultar a API. Combinações recusadas pelo provedor são bloqueadas. O Genjutsu **não aceita duração nem proporção personalizadas**: sua duração acompanha a referência (4–30 s), e o formato é definido pelo provedor. Não é enviado nenhum parâmetro inexistente para simular essas opções.
+
+O painel **Resumo da geração** atualiza a cotação ao mudar a configuração ou as referências, descartando respostas antigas. Exibe somente os valores efetivamente retornados pela API (USD e, quando disponível, créditos), ou a tarifa documentada do Genjutsu calculada pelo servidor. Descrições de cobrança por token sem quantidade ou custo total não são convertidas em estimativas. Sem um custo fundamentado, a geração de vídeo permanece bloqueada. Não inferimos dimensões exatas em pixels a partir de nomes de resolução.
+
+**Limitação de saldo:** a documentação fornecida e os SDKs oficiais consultados não documentam uma consulta de saldo da API. Por isso, saldo disponível e saldo restante aparecem como indisponíveis. Não usamos créditos da assinatura, gastos locais ou um valor manual como saldo real. Nessa situação, a confirmação exige que o usuário declare ter conferido o saldo no console Higgsfield API. O erro de saldo insuficiente retornado pelo provedor é exibido e não causa reenvio automático. Uma futura consulta automática de saldo exige o contrato oficial do endpoint; a função `getApiBalance` centraliza essa integração.
+
+Ao clicar em **GERAR VÍDEO**, uma cotação nova é calculada no backend e aparece na confirmação. A autorização assinada dura cinco minutos e fica vinculada ao modelo, descrição, referências, parâmetros e preço. O servidor revalida o custo antes de colocar na fila e novamente antes do envio pago. Mudanças de custo/origem ou cotação indisponível exigem nova confirmação. Repetir a mesma confirmação não cria outro job. Essa verificação confirma a **estimativa autorizada**, não garante uma fatura final que o provedor ainda não informou. A fila e o salvamento no GitHub permanecem iguais.
+
+Não há novas chaves ou variáveis para configurar. Os testes simulam preço, saldo insuficiente, confirmação, expiração, duplicação e persistência; não consomem créditos reais.
 
 ## Onde ficam os arquivos
 

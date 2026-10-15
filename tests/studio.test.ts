@@ -7,6 +7,7 @@ import { createSession, validSession } from "../lib/auth";
 import { proxy } from "../proxy";
 import { NextRequest } from "next/server";
 import { POST as generate } from "../app/api/generate/route";
+import { POST as videoQuote } from "../app/api/video/quote/route";
 import { POST as settings } from "../app/api/settings/route";
 
 const originalFetch = global.fetch;
@@ -228,8 +229,11 @@ test("Genjutsu queues its exact mixed input and persists completed video in the 
     if (parsed.href === "https://outputs.example.com/result.mp4") return new Response(videoBytes, { headers: { "content-type": "video/mp4" } });
     return fallback(url, init);
   };
+  const request = { modelId: "genjutsu-motion-transfer", videoUrl: input.video_url, refUrls: input.image_urls, params: { resolution: "1080p" } };
+  const quotation = await videoQuote(new Request("http://localhost/api/video/quote", { method: "POST", body: JSON.stringify(request) }));
+  const quote = await quotation.json();
   const response = await generate(new Request("http://localhost/api/generate", { method: "POST", body: JSON.stringify({
-    modelId: "genjutsu-motion-transfer", videoUrl: input.video_url, refUrls: input.image_urls, params: { resolution: "1080p" }
+    ...request, confirmation: quote.confirmation, balanceAcknowledged: true
   }) }));
   assert.equal(response.status, 200, await response.clone().text());
   await runWorker();
@@ -258,4 +262,87 @@ test("missing Genjutsu estimate endpoint does not incorrectly disable documented
   const body = await response.json();
   assert.equal(body.usd, null);
   assert.notEqual(body.available, false);
+});
+
+
+const videoInput = { modelId: "genjutsu-motion-transfer", videoUrl: "https://media.example.com/motion.mp4", refUrls: ["https://media.example.com/character.jpg"], params: { resolution: "720p" } };
+async function quoteRequest(input: unknown = videoInput) {
+  return videoQuote(new Request("http://localhost/api/video/quote", { method: "POST", body: JSON.stringify(input) }));
+}
+async function generateVideo(extra: Record<string, unknown>) {
+  return generate(new Request("http://localhost/api/generate", { method: "POST", body: JSON.stringify({ ...videoInput, ...extra }) }));
+}
+
+test("video generation requires signed matching confirmation and acknowledgment of unavailable balance", async () => {
+  assert.equal((await generateVideo({})).status, 409);
+  const quote = await (await quoteRequest()).json();
+  assert.equal(quote.usd, 0.1); assert.equal(quote.credits, 1);
+  assert.equal(quote.balance.status, "unavailable"); assert.equal(quote.remainingUsd, null);
+  assert.equal((await generateVideo({ confirmation: quote.confirmation })).status, 409);
+  assert.equal((await generateVideo({ confirmation: quote.confirmation + "x", balanceAcknowledged: true })).status, 409);
+  assert.equal((await generateVideo({ confirmation: quote.confirmation, balanceAcknowledged: true, params: { resolution: "1080p" } })).status, 409);
+  assert.equal((await readState()).jobs.length, 0);
+  assert.equal(submissions, 0);
+});
+
+test("video price is recalculated before enqueue and price changes require a new confirmation", async () => {
+  const quote = await (await quoteRequest()).json();
+  const fallback = global.fetch;
+  global.fetch = async (url, init) => new URL(String(url)).pathname.startsWith("/estimate/") ? json({ usd: "0.50", credits: "5" }) : fallback(url, init);
+  const response = await generateVideo({ confirmation: quote.confirmation, balanceAcknowledged: true });
+  assert.equal(response.status, 409);
+  assert.equal((await readState()).jobs.length, 0);
+  assert.equal(submissions, 0);
+});
+
+test("replayed video confirmation produces one durable job", async () => {
+  const quote = await (await quoteRequest()).json();
+  const request = { confirmation: quote.confirmation, balanceAcknowledged: true };
+  const [a, b] = await Promise.all([generateVideo(request), generateVideo(request)]);
+  assert.equal(a.status, 200); assert.equal(b.status, 200);
+  assert.equal((await a.json()).id, (await b.json()).id);
+  assert.equal((await readState()).jobs.length, 1);
+});
+
+test("worker never submits an approved video whose quote changed while waiting in the queue", async () => {
+  const quote = await (await quoteRequest()).json();
+  assert.equal((await generateVideo({ confirmation: quote.confirmation, balanceAcknowledged: true })).status, 200);
+  const fallback = global.fetch;
+  global.fetch = async (url, init) => new URL(String(url)).pathname.startsWith("/estimate/") ? json({ usd: "0.40", credits: "4" }) : fallback(url, init);
+  await runWorker();
+  assert.equal(submissions, 0);
+  const job = (await readState()).jobs[0];
+  assert.equal(job.status, "failed"); assert.match(job.error!, /preço mudou/);
+});
+
+test("unknown price never becomes zero and has no usable confirmation", async () => {
+  global.fetch = async () => json({ usd: null, credits: "" });
+  const quote = await (await quoteRequest()).json();
+  assert.equal(quote.usd, null); assert.equal(quote.credits, null); assert.equal(quote.confirmation, null);
+  assert.equal(quote.source, "unavailable"); assert.equal(quote.remainingUsd, null);
+});
+
+test("official Genjutsu table rates use server-verified media duration only", async () => {
+  const { videoProof } = await import("../lib/video-metadata");
+  global.fetch = async () => json({ detail: "Missing estimate" }, 404);
+  const proof = videoProof(videoInput.videoUrl, { duration: 4.1 });
+  const quote = await (await quoteRequest({ ...videoInput, videoMetadata: proof })).json();
+  assert.equal(quote.usd, 3.405); assert.equal(quote.credits, null); assert.equal(quote.source, "configured-rate");
+  const untrusted = await (await quoteRequest({ ...videoInput, sourceDuration: 4.1, videoMetadata: proof + "tampered" })).json();
+  assert.equal(untrusted.usd, null); assert.equal(untrusted.confirmation, null);
+});
+
+test("provider insufficient balance and invalid combinations cannot receive confirmation", async () => {
+  global.fetch = async () => json({ detail: "insufficient balance" }, 402);
+  assert.equal((await quoteRequest()).status, 402);
+  global.fetch = async () => json({ detail: "unsupported combination" }, 422);
+  assert.equal((await quoteRequest()).status, 422);
+  assert.equal(submissions, 0);
+});
+
+test("token price descriptions do not invent token counts or dollar conversions", async () => {
+  global.fetch = async () => json({ type: "description", pricing_description: "Billed per token" });
+  const quote = await (await quoteRequest({ modelId: "bytedance-seedance-2-5-text-to-video", prompt: "Ocean" })).json();
+  assert.equal(quote.billingUnit, "tokens");
+  assert.equal(quote.tokens, null); assert.equal(quote.usd, null); assert.equal(quote.confirmation, null);
 });

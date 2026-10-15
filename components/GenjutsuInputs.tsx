@@ -10,6 +10,7 @@ export interface MediaReference {
   preview: string;
   kind: "image" | "video" | "audio";
   duration?: number;
+  videoMetadata?: string;
 }
 
 async function videoDuration(file: File): Promise<number> {
@@ -36,13 +37,14 @@ async function videoDuration(file: File): Promise<number> {
   });
 }
 
-export default function GenjutsuInputs({ refs, setRefs, uploading, setUploading, onError, resolution }: {
+export default function GenjutsuInputs({ refs, setRefs, uploading, setUploading, onError, resolution, showPrice = true }: {
   refs: MediaReference[];
   setRefs: React.Dispatch<React.SetStateAction<MediaReference[]>>;
   uploading: boolean;
   setUploading: (value: boolean) => void;
   onError: (message: string | null) => void;
   resolution: string;
+  showPrice?: boolean;
 }) {
   const [videoLink, setVideoLink] = useState("");
   const [imageLink, setImageLink] = useState("");
@@ -84,7 +86,7 @@ export default function GenjutsuInputs({ refs, setRefs, uploading, setUploading,
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Falha ao enviar referência.");
         if (!validReferenceUrl(data.url)) throw new Error("O upload não retornou um link de referência válido.");
-        add({ url: data.url, preview: data.url, name: file.name, kind, duration });
+        add({ url: data.url, preview: data.url, name: file.name, kind, duration: data.duration ?? duration, videoMetadata: data.videoMetadata });
         if (kind === "image") imageCount++;
       }
     } catch (err) { onError(err instanceof Error ? err.message : "Falha no upload."); }
@@ -114,6 +116,6 @@ export default function GenjutsuInputs({ refs, setRefs, uploading, setUploading,
       </li>)}
     </ul>}
     <p className="mt-2 text-xs text-muted">Upload: até 4 MB por arquivo. Links devem abrir a mídia sem login. A duração dos vídeos por link é validada pelo provedor.</p>
-    <p className="mt-1 text-xs text-warn">Preço de tabela: US$ {GENJUTSU_RATES[resolution]?.toFixed(3).replace(".", ",") ?? "—"}/s em {resolution}. Segundos arredondados para cima, antes de descontos.{listPrice !== null ? ` Total de tabela para este vídeo: ${formatUsd(listPrice)}.` : ""}</p>
+    {showPrice && <p className="mt-1 text-xs text-warn">Preço de tabela: US$ {GENJUTSU_RATES[resolution]?.toFixed(3).replace(".", ",") ?? "—"}/s em {resolution}. Segundos arredondados para cima, antes de descontos.{listPrice !== null ? ` Total de tabela para este vídeo: ${formatUsd(listPrice)}.` : ""}</p>}
   </div>;
 }

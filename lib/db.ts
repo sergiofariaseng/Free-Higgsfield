@@ -1,8 +1,9 @@
 import { snapshot, transaction, type TreeChange, StoreError } from "./github";
+import type { VideoApproval } from "./video-pricing";
 import type { Job, Generation } from "./shared";
 export type { JobStatus } from "./shared";
 export const TERMINAL = ["completed", "failed", "nsfw", "canceled"];
-export type JobWithOutputs = Job & { next_poll_at: number; submitted_at: number | null; submission_started_at?: number; archived?: boolean };
+export type JobWithOutputs = Job & { next_poll_at: number; submitted_at: number | null; submission_started_at?: number; archived?: boolean; video_approval?: VideoApproval; source_duration?: number };
 export interface StudioState {
   version: 1;
   settings: { max_concurrent: number; spend_cap: string };

@@ -1,3 +1,6 @@
+import { getModel } from "./models";
+import { priceVideo, checkRepriced } from "./video-pricing";
+import { getApiBalance, balanceAfter } from "./api-balance";
 import { randomUUID } from "node:crypto";
 import { mutate, readState, TERMINAL, type JobWithOutputs, type StudioState } from "./db";
 import { blob, StoreError, type TreeChange } from "./github";
@@ -47,6 +50,21 @@ export async function downloadMedia(url: string) {
 
 async function step(owner: string, job: JobWithOutputs) {
   if (job.status === "pending") {
+    if (job.video_approval) {
+      try {
+        const model = getModel(job.model_id);
+        if (!model) throw new Error("Modelo indisponível.");
+        const [price, balance] = await Promise.all([
+          priceVideo({ model, endpoint: job.endpoint, body: job.params, prompt: job.prompt, batch: job.batch, refUrls: [], sourceDuration: job.source_duration }),
+          getApiBalance(),
+        ]);
+        checkRepriced(job.video_approval, price);
+        if (balanceAfter(balance, price.usd, price.credits).insufficient) throw new Error("Saldo insuficiente na API do Higgsfield.");
+      } catch (err) {
+        await patch(owner, job.id, { status: "failed", error: err instanceof Error ? err.message : "Não foi possível confirmar o custo. Gere uma nova cotação.", next_poll_at: 0 });
+        return;
+      }
+    }
     // Persist the intent BEFORE sending a billable request. An ambiguous failure
     // must never cause an automatic second submission/charge.
     await patch(owner, job.id, { status: "in_progress", submission_started_at: Date.now() });
@@ -56,9 +74,9 @@ async function step(owner: string, job: JobWithOutputs) {
       if (err instanceof HiggsfieldError && (err.retryable || err.status === 429) && err.status < 500) {
         await patch(owner, job.id, { status: "pending", submission_started_at: undefined, next_poll_at: Date.now() + Math.max(err.retryAfterMs, 30_000) });
       } else {
-        const knownRejected = err instanceof HiggsfieldError && [400,401,403,404,422,423].includes(err.status);
+        const knownRejected = err instanceof HiggsfieldError && [400,401,402,403,404,422,423].includes(err.status);
         await patch(owner, job.id, { status: "failed", submission_started_at: knownRejected ? undefined : Date.now(), error: knownRejected
-          ? "O Higgsfield recusou a geração. Confira o modelo, o saldo e as credenciais."
+          ? err instanceof HiggsfieldError && err.status === 402 ? "Saldo insuficiente na API do Higgsfield. Recarregue o saldo no console da API." : "O Higgsfield recusou a geração. Confira o modelo, o saldo e as credenciais."
           : "Envio sem confirmação. Confira o histórico no Higgsfield antes de criar outra geração; não reenviamos automaticamente para evitar cobrança duplicada." });
       }
       return;

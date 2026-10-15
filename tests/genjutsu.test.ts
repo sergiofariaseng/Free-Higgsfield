@@ -8,7 +8,7 @@ const input = { modelId: "genjutsu-motion-transfer", videoUrl: "https://media.ex
 
 test("Genjutsu supports mixed references and optional prompt with exact documented payload", () => {
   assert.ok(modelsByKind("video").some(m => m.id === input.modelId));
-  const parsed = parseGenerationRequest({ ...input, batch: 4, params: { duration: 10, aspect_ratio: "16:9" } });
+  const parsed = parseGenerationRequest({ ...input, batch: 4, params: { seed: 123 } });
   assert.equal(parsed.endpoint, "/higgsfield/genjutsu/motion-transfer/v1.0");
   assert.equal(parsed.batch, 1);
   assert.deepEqual(parsed.body, { prompt: "", video_url: input.videoUrl, image_urls: input.refUrls, resolution: "720p" });
@@ -24,7 +24,7 @@ test("Genjutsu rejects incomplete references, invalid URLs, excess images and un
     { videoUrl: undefined }, { videoUrl: "file:///tmp/video.mp4" }, { videoUrl: "https://user:password@example.com/video.mp4" },
     { refUrls: [] }, { refUrls: ["not a URL"] }, { refUrls: [123] },
     { refUrls: Array(9).fill(input.refUrls[0]) }, { videoUrl: "https://example.com/" + "x".repeat(2083) },
-    { params: { resolution: "4K" } }, { prompt: "x".repeat(10001) }
+    { params: { duration: 10 } }, { params: { aspect_ratio: "9:16" } }, { params: { resolution: "4K" } }, { prompt: "x".repeat(10001) }
   ]) assert.throws(() => parseGenerationRequest({ ...input, ...change }), BadRequest);
   assert.throws(() => parseGenerationRequest({ modelId: "soul-cinema", prompt: "" }), /descrição/);
 });
