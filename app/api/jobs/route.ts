@@ -5,7 +5,7 @@ import { apiError } from "@/lib/api";
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
-    if (!storageConfigured()) return NextResponse.json({ error: "Configure o GitHub em Configurações para carregar sua biblioteca." }, { status: 503 });
+    if (!storageConfigured()) return NextResponse.json({ error: "Para carregar a biblioteca, cadastre GITHUB_TOKEN e GITHUB_REPOSITORY no painel da Vercel → Settings → Environment Variables e faça Redeploy. A tela Configurações do aplicativo mostra as instruções e o estado da conexão." }, { status: 503 });
     const url = new URL(req.url);
     const raw = url.searchParams.get("kind");
     const kind = raw === "image" || raw === "video" ? raw : undefined;

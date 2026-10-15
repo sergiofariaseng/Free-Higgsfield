@@ -32,7 +32,16 @@ export default function SettingsPage() {
     <header className="flex min-h-[68px] items-center justify-between border-b border-edge-soft px-5 sm:px-7"><h1 className="text-xl">Configurações</h1><button onClick={() => void load()} disabled={busy} className="text-sm text-accent">{busy ? "Verificando…" : "Verificar conexões"}</button></header>
     <div className="mx-auto max-w-3xl space-y-6 px-5 py-8">
       <section className="rounded-2xl border border-edge-soft bg-panel p-6">
-        <h2 className="text-lg">Conexões do estúdio</h2><p className="mt-2 text-sm text-muted">Adicione as variáveis no projeto da Vercel em Settings → Environment Variables e faça um novo deploy. As chaves ficam somente no servidor.</p>
+        <h2 className="text-lg">Conexões do estúdio</h2><p className="mt-2 text-sm text-muted">Esta tela verifica as conexões; ela não possui campos para cadastrar chaves. Cadastre-as no painel da Vercel seguindo os passos abaixo.</p>
+        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-muted">
+          <li>Abra o painel da Vercel e selecione o projeto <strong className="text-text">free-higgsfield</strong>.</li>
+          <li>Entre em <strong className="text-text">Settings → Environment Variables → Add Environment Variable</strong>.</li>
+          <li>Cadastre <code>GITHUB_REPOSITORY</code> com o valor <code>sergiofariaseng/Free-Higgsfield</code> e <code>GITHUB_TOKEN</code> com seu token do GitHub. Selecione <strong className="text-text">Production</strong> e salve.</li>
+          <li>Para gerar conteúdo, cadastre também <code>HF_API_KEY_ID</code> e <code>HF_API_KEY_SECRET</code> com as duas partes da chave Higgsfield.</li>
+          <li>Abra <strong className="text-text">Deployments → ⋯ → Redeploy</strong>. Quando concluir, volte aqui e clique em <strong className="text-text">Verificar conexões</strong>.</li>
+        </ol>
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-accent">Criar token do GitHub ↗</a>
+        <p className="mt-2 text-xs text-muted">No GitHub, limite o token ao repositório Free-Higgsfield e habilite Repository permissions → Contents → Read and write. Cole o valor somente nas variáveis da Vercel.</p>
         <div className="mt-5 space-y-4">
           <Connection title="Higgsfield" ok={settings?.higgsfield} text="HF_API_KEY_ID e HF_API_KEY_SECRET. Sua conta precisa de acesso à API e saldo para gerar." />
           <Connection title="GitHub" ok={settings?.github} text="GITHUB_TOKEN com Contents: Read and write e GITHUB_REPOSITORY no formato proprietário/repositório." />
