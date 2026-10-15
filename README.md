@@ -15,7 +15,7 @@ Aplicativo em português baseado no projeto do ZIP fornecido. Gera imagens e ví
 
 | Variável | O que preencher |
 | --- | --- |
-| `APP_PASSWORD` | Senha pessoal forte com pelo menos 16 caracteres. |
+| `APP_PASSWORD` | Sua senha de acesso. Pode ser curta; basta não estar vazia. |
 | `SESSION_SECRET` | Segredo aleatório com pelo menos 32 caracteres, diferente da senha. |
 | `HF_API_KEY_ID` | ID da chave criada no console Higgsfield. |
 | `HF_API_KEY_SECRET` | Segredo correspondente da chave Higgsfield. |

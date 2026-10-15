@@ -174,3 +174,16 @@ test("same-origin login works behind Next's internal localhost URL",()=>{
   const request=new NextRequest("http://localhost:3000/api/auth/login",{method:"POST",headers:{host:"127.0.0.1:3000",origin:"http://127.0.0.1:3000"}});
   assert.equal(proxy(request).status,200);
 });
+
+test("short personal password can log in and create a valid session; empty password stays unconfigured",async()=>{
+  const { POST: login } = await import("../app/api/auth/login/route");
+  process.env.APP_PASSWORD="1234";
+  const response=await login(new Request("http://localhost/api/auth/login",{method:"POST",body:JSON.stringify({password:"1234"})}));
+  assert.equal(response.status,200);
+  const session=response.cookies.get("studio_session")?.value;
+  assert.ok(validSession(session));
+  process.env.APP_PASSWORD="";
+  const empty=await login(new Request("http://localhost/api/auth/login",{method:"POST",body:JSON.stringify({password:""})}));
+  assert.equal(empty.status,503);
+  assert.ok(!validSession(session));
+});

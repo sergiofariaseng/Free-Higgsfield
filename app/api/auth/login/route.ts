@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authConfigured, COOKIE, createSession, safeEqual } from "@/lib/auth";
 const attempts = new Map<string, { count: number; until: number }>();
 export async function POST(req: Request) {
-  if (!authConfigured()) return NextResponse.json({ error: "Configure APP_PASSWORD (mínimo 16 caracteres) e SESSION_SECRET (mínimo 32) na Vercel e faça um novo deploy." }, { status: 503 });
+  if (!authConfigured()) return NextResponse.json({ error: "Configure APP_PASSWORD com a senha que você escolher (pode ser curta) e SESSION_SECRET com pelo menos 32 caracteres na Vercel. Depois faça um novo deploy." }, { status: 503 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "local";
   for (const [key, value] of attempts) if (value.until <= Date.now()) attempts.delete(key);
   const entry = attempts.get(ip) || { count: 0, until: Date.now() + 15 * 60_000 };
