@@ -7,7 +7,7 @@
  * live endpoint from a dead one. This uses /estimate, which prices a request
  * without generating anything, so running it costs nothing.
  *
- *   HF_API_KEY_ID=... HF_API_KEY_SECRET=... npm run verify
+ *   HF_KEY=... npm run verify
  *
  * Status meanings, learned from the live API:
  *   200  endpoint works and was priced
@@ -20,11 +20,14 @@
 
 import { readFileSync } from "node:fs";
 
-const ID = process.env.HF_API_KEY_ID;
-const SECRET = process.env.HF_API_KEY_SECRET;
+const officialId = process.env.HF_API_KEY?.trim();
+const officialSecret = process.env.HF_API_SECRET?.trim();
+const id = process.env.HF_API_KEY_ID?.trim();
+const secret = process.env.HF_API_KEY_SECRET?.trim();
+const key = process.env.HF_KEY?.trim() || (officialId && officialSecret ? `${officialId}:${officialSecret}` : null) || (id && secret ? `${id}:${secret}` : null);
 
-if (!ID || !SECRET) {
-  console.error("Set HF_API_KEY_ID and HF_API_KEY_SECRET first.");
+if (!key) {
+  console.error("Set HF_KEY with the complete Higgsfield API key first.");
   process.exit(1);
 }
 
@@ -35,7 +38,7 @@ const endpoints = [
 ];
 
 const headers = {
-  Authorization: `Key ${ID}:${SECRET}`,
+  Authorization: `Key ${key}`,
   "Content-Type": "application/json",
   // Cloudflare rejects some default client user-agents with error 1010.
   "User-Agent": "higgsfield-studio/1.0",

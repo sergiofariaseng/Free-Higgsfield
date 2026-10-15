@@ -37,13 +37,13 @@ export default function SettingsPage() {
           <li>Abra o painel da Vercel e selecione o projeto <strong className="text-text">free-higgsfield</strong>.</li>
           <li>Entre em <strong className="text-text">Settings → Environment Variables → Add Environment Variable</strong>.</li>
           <li>Cadastre <code>GITHUB_REPOSITORY</code> com o valor <code>sergiofariaseng/Free-Higgsfield</code> e <code>GITHUB_TOKEN</code> com seu token do GitHub. Selecione <strong className="text-text">Production</strong> e salve.</li>
-          <li>Para gerar conteúdo, cadastre também <code>HF_API_KEY_ID</code> e <code>HF_API_KEY_SECRET</code> com as duas partes da chave Higgsfield.</li>
+          <li>No Higgsfield, clique em <strong className="text-text">Copy API key</strong>. Cadastre <code>HF_KEY</code> na Vercel com o valor completo copiado, sem separar a chave em partes.</li>
           <li>Abra <strong className="text-text">Deployments → ⋯ → Redeploy</strong>. Quando concluir, volte aqui e clique em <strong className="text-text">Verificar conexões</strong>.</li>
         </ol>
         <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-accent">Criar token do GitHub ↗</a>
         <p className="mt-2 text-xs text-muted">No GitHub, limite o token ao repositório Free-Higgsfield e habilite Repository permissions → Contents → Read and write. Cole o valor somente nas variáveis da Vercel.</p>
         <div className="mt-5 space-y-4">
-          <Connection title="Higgsfield" ok={settings?.higgsfield} text="HF_API_KEY_ID e HF_API_KEY_SECRET. Sua conta precisa de acesso à API e saldo para gerar." />
+          <Connection title="Higgsfield" ok={settings?.higgsfield} text="HF_KEY: cole a chave completa do botão Copy API key do Higgsfield. Sua conta precisa de acesso à API e saldo para gerar." />
           <Connection title="GitHub" ok={settings?.github} text="GITHUB_TOKEN com Contents: Read and write e GITHUB_REPOSITORY no formato proprietário/repositório." />
           <Connection title="Sincronização automática" ok={settings?.cron} text="CRON_SECRET. O agendamento padrão consulta a fila uma vez por dia; com a biblioteca aberta, a sincronização ocorre a cada 15 segundos." />
         </div>

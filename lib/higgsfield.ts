@@ -3,7 +3,9 @@
 /**
  * The only module that talks to api.higgsfield.ai.
  *
- * Auth is a two-part key sent as `Authorization: Key <id>:<secret>`. Credentials come only from server environment variables.
+ * Auth follows the official SDK: HF_KEY is used verbatim, or a key and
+ * secret are combined. Legacy app variable names remain supported.
+ * Credentials come only from server environment variables.
  */
 
 const BASE = "https://api.higgsfield.ai";
@@ -37,16 +39,20 @@ export class HiggsfieldError extends Error {
 
 export class MissingCredentialsError extends Error {
   constructor() {
-    super("Chave de API do Higgsfield não configurada. Configure HF_API_KEY_ID e HF_API_KEY_SECRET na Vercel.");
+    super("Chave de API do Higgsfield não configurada. Copie a chave completa para HF_KEY nas variáveis da Vercel e faça Redeploy.");
     this.name = "MissingCredentialsError";
   }
 }
 
-export function credentials(): { id: string; secret: string } | null {
-  const id = process.env.HF_API_KEY_ID ?? "";
-  const secret = process.env.HF_API_KEY_SECRET ?? "";
-  if (!id || !secret) return null;
-  return { id, secret };
+export function credentials(): string | null {
+  const full = process.env.HF_KEY?.trim();
+  if (full) return full;
+  const officialId = process.env.HF_API_KEY?.trim();
+  const officialSecret = process.env.HF_API_SECRET?.trim();
+  if (officialId && officialSecret) return `${officialId}:${officialSecret}`;
+  const id = process.env.HF_API_KEY_ID?.trim();
+  const secret = process.env.HF_API_KEY_SECRET?.trim();
+  return id && secret ? `${id}:${secret}` : null;
 }
 
 export function hasCredentials(): boolean {
@@ -57,7 +63,7 @@ function authHeaders(): Record<string, string> {
   const creds = credentials();
   if (!creds) throw new MissingCredentialsError();
   return {
-    Authorization: `Key ${creds.id}:${creds.secret}`,
+    Authorization: `Key ${creds}`,
     "Content-Type": "application/json",
     // Higgsfield sits behind Cloudflare, which blocks some default client
     // user-agents outright (Cloudflare error 1010). Always send our own.

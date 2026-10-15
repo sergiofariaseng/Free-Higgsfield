@@ -187,3 +187,26 @@ test("short personal password can log in and create a valid session; empty passw
   assert.equal(empty.status,503);
   assert.ok(!validSession(session));
 });
+
+test("complete Higgsfield key is sent verbatim and takes precedence over legacy credentials",async()=>{
+  const { credentials, estimate } = await import("../lib/higgsfield");
+  process.env.HF_KEY="test-complete-key:secret-part";
+  assert.equal(credentials(),"test-complete-key:secret-part");
+  global.fetch=async(_input,init)=>{
+    assert.equal(new Headers(init?.headers).get("authorization"),"Key test-complete-key:secret-part");
+    return json({usd:"0.10",credits:"1"});
+  };
+  await estimate("/test/model",{});
+});
+
+test("official and legacy Higgsfield pairs work without mixing incomplete credentials",async()=>{
+  const { credentials } = await import("../lib/higgsfield");
+  delete process.env.HF_KEY;
+  process.env.HF_API_KEY="official-id";
+  process.env.HF_API_SECRET="official-secret";
+  assert.equal(credentials(),"official-id:official-secret");
+  delete process.env.HF_API_SECRET;
+  assert.equal(credentials(),"test-id:test-secret");
+  delete process.env.HF_API_KEY_ID;
+  assert.equal(credentials(),null);
+});

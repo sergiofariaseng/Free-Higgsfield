@@ -17,13 +17,14 @@ Aplicativo em português baseado no projeto do ZIP fornecido. Gera imagens e ví
 | --- | --- |
 | `APP_PASSWORD` | Sua senha de acesso. Pode ser curta; basta não estar vazia. |
 | `SESSION_SECRET` | Segredo aleatório com pelo menos 32 caracteres, diferente da senha. |
-| `HF_API_KEY_ID` | ID da chave criada no console Higgsfield. |
-| `HF_API_KEY_SECRET` | Segredo correspondente da chave Higgsfield. |
+| `HF_KEY` | Chave completa copiada do botão **Copy API key** do Higgsfield. Cole o valor inteiro, sem separar. |
 | `GITHUB_TOKEN` | Token de escopo restrito descrito acima. |
 | `GITHUB_REPOSITORY` | `sergiofariaseng/Free-Higgsfield` |
 | `GITHUB_BASE_BRANCH` | `main` (padrão). |
 | `GITHUB_STORAGE_BRANCH` | `studio-storage` (padrão; deve ser diferente da branch do código). |
 | `CRON_SECRET` | Outro segredo aleatório com pelo menos 32 caracteres. A Vercel o envia ao cron como Bearer token. |
+
+A autenticação segue o [SDK oficial Higgsfield](https://github.com/higgsfield-ai/higgsfield-client): `HF_KEY` tem prioridade. Também são aceitos `HF_API_KEY` + `HF_API_SECRET`, ou os nomes antigos `HF_API_KEY_ID` + `HF_API_KEY_SECRET`; pares incompletos não são combinados entre formatos.
 
 Não coloque chaves em variáveis `NEXT_PUBLIC_*`, código-fonte ou arquivos do GitHub. A tela de configurações mostra o estado das conexões, nunca os valores das chaves. Trocar senha ou segredo de sessão invalida os logins anteriores. O limitador de tentativas de login é por instância; para proteção adicional distribuída, configure uma regra de rate limiting no Vercel Firewall para `/api/auth/login`.
 

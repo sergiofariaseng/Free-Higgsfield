@@ -2,7 +2,7 @@
 /**
  * Discovers every model the API offers and writes lib/catalog.generated.ts.
  *
- *   HF_API_KEY_ID=... HF_API_KEY_SECRET=... node scripts/discover-models.mjs
+ *   HF_KEY=... node scripts/discover-models.mjs
  *
  * Why this exists: the published OpenAPI spec is wrong and incomplete, and
  * hand-guessing endpoint paths misses most of the catalogue. `GET /models` is
@@ -22,15 +22,18 @@
 
 import { writeFileSync } from "node:fs";
 
-const ID = process.env.HF_API_KEY_ID;
-const SECRET = process.env.HF_API_KEY_SECRET;
-if (!ID || !SECRET) {
-  console.error("Set HF_API_KEY_ID and HF_API_KEY_SECRET first.");
+const officialId = process.env.HF_API_KEY?.trim();
+const officialSecret = process.env.HF_API_SECRET?.trim();
+const id = process.env.HF_API_KEY_ID?.trim();
+const secret = process.env.HF_API_KEY_SECRET?.trim();
+const key = process.env.HF_KEY?.trim() || (officialId && officialSecret ? `${officialId}:${officialSecret}` : null) || (id && secret ? `${id}:${secret}` : null);
+if (!key) {
+  console.error("Set HF_KEY with the complete Higgsfield API key first.");
   process.exit(1);
 }
 
 const H = {
-  Authorization: `Key ${ID}:${SECRET}`,
+  Authorization: `Key ${key}`,
   "Content-Type": "application/json",
   // Cloudflare rejects some default client user-agents with error 1010.
   "User-Agent": "diogo-automates/1.0",
