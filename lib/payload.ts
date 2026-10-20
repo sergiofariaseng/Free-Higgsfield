@@ -2,6 +2,7 @@ import { buildBody, getModel, resolveEndpoint, type ModelDef } from "./models";
 import { parameterProblem, VIDEO_KEYS } from "./video-capabilities";
 import { verifiedVideoMetadata } from "./video-metadata";
 import { GENJUTSU_RATES, validReferenceUrl } from "./genjutsu";
+import { genjutsuPrompt, GENJUTSU_APPEARANCE_LIMIT } from "./genjutsu-fidelity";
 
 /**
  * Shared parsing for /api/generate and /api/estimate — both take the same shape
@@ -44,6 +45,9 @@ export function parseGenerationRequest(input: unknown, options: { preview?: bool
     }
   }
   if (model.referenceMode === "motion-transfer") {
+    if (prompt.length > GENJUTSU_APPEARANCE_LIMIT) {
+      throw new BadRequest(`Os detalhes de aparência do Genjutsu aceitam até ${GENJUTSU_APPEARANCE_LIMIT.toLocaleString("pt-BR")} caracteres; o restante é reservado à instrução automática de fidelidade.`);
+    }
     if (!validReferenceUrl(raw.videoUrl)) throw new BadRequest("Informe um link HTTPS válido para o vídeo de referência do Genjutsu.");
     if (!Array.isArray(raw.refUrls) || raw.refUrls.length < 1 || raw.refUrls.length > 8 || !raw.refUrls.every(validReferenceUrl)) {
       throw new BadRequest("O Genjutsu precisa de 1 a 8 imagens de referência com links HTTPS válidos.");
@@ -55,7 +59,7 @@ export function parseGenerationRequest(input: unknown, options: { preview?: bool
     // Allow only the documented fields; extra controls from another model
     // must not leak into this additionalProperties:false API schema.
     return { model, endpoint: model.endpoint, prompt, batch: 1, refUrls: raw.refUrls, sourceDuration: metadata?.duration,
-      body: { prompt, video_url: raw.videoUrl, image_urls: raw.refUrls, resolution } };
+      body: { prompt: genjutsuPrompt(prompt), video_url: raw.videoUrl, image_urls: raw.refUrls, resolution } };
   }
 
   const refUrls = Array.isArray(raw.refUrls) ? raw.refUrls.map(String).filter(Boolean) : [];

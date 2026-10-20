@@ -8,6 +8,7 @@ import { proxy } from "../proxy";
 import { NextRequest } from "next/server";
 import { POST as generate } from "../app/api/generate/route";
 import { POST as videoQuote } from "../app/api/video/quote/route";
+import { GENJUTSU_FIDELITY_PROMPT, genjutsuPrompt } from "../lib/genjutsu-fidelity";
 import { POST as settings } from "../app/api/settings/route";
 
 const originalFetch = global.fetch;
@@ -214,7 +215,7 @@ test("official and legacy Higgsfield pairs work without mixing incomplete creden
 
 test("Genjutsu queues its exact mixed input and persists completed video in the GitHub library", async () => {
   const fallback = global.fetch;
-  const input = { prompt: "", video_url: "https://media.example.com/motion.mp4", image_urls: ["https://media.example.com/character.jpg"], resolution: "1080p" };
+  const input = { prompt: GENJUTSU_FIDELITY_PROMPT, video_url: "https://media.example.com/motion.mp4", image_urls: ["https://media.example.com/character.jpg"], resolution: "1080p" };
   const videoBytes = Buffer.from("mock-mp4-result");
   let sent = 0;
   global.fetch = async (url, init) => {
@@ -244,6 +245,7 @@ test("Genjutsu queues its exact mixed input and persists completed video in the 
   assert.equal(job.status, "completed");
   assert.equal(job.model_name, "Genjutsu Motion Transfer");
   assert.deepEqual(job.params, input);
+  assert.equal(job.prompt, "");
   assert.equal(job.outputs[0].kind, "video");
   const file = job.outputs[0].local_path!;
   assert.match(file, /^media\/videos\/.*\.mp4$/);
@@ -345,4 +347,59 @@ test("token price descriptions do not invent token counts or dollar conversions"
   const quote = await (await quoteRequest({ modelId: "bytedance-seedance-2-5-text-to-video", prompt: "Ocean" })).json();
   assert.equal(quote.billingUnit, "tokens");
   assert.equal(quote.tokens, null); assert.equal(quote.usd, null); assert.equal(quote.confirmation, null);
+});
+
+test("Genjutsu appearance details preserve a single identical fidelity prompt through both estimates, queue and submission", async () => {
+  const { POST: legacyEstimate } = await import("../app/api/estimate/route");
+  const appearance = "Cabelo curto e casaco azul, conforme as imagens.";
+  const request = { ...videoInput, prompt: appearance };
+  const expected = { prompt: genjutsuPrompt(appearance), video_url: videoInput.videoUrl, image_urls: videoInput.refUrls, resolution: "720p" };
+  const calls: Array<{ path: string; body: unknown }> = [];
+  const fallback = global.fetch;
+  global.fetch = async (url, init) => {
+    const path = new URL(String(url)).pathname;
+    if (new URL(String(url)).hostname === "api.higgsfield.ai" && path.endsWith("/higgsfield/genjutsu/motion-transfer/v1.0")) {
+      const body = JSON.parse(String(init?.body));
+      calls.push({ path, body });
+      assert.deepEqual(body, expected);
+      assert.equal(body.prompt.split(GENJUTSU_FIDELITY_PROMPT).length - 1, 1);
+    }
+    return fallback(url, init);
+  };
+  assert.equal((await legacyEstimate(new Request("http://localhost/api/estimate", { method: "POST", body: JSON.stringify(request) }))).status, 200);
+  const quoted = await (await quoteRequest(request)).json();
+  const response = await generateVideo({ prompt: appearance, confirmation: quoted.confirmation, balanceAcknowledged: true });
+  assert.equal(response.status, 200, await response.clone().text());
+  const persisted = (await readState()).jobs[0];
+  assert.equal(persisted.prompt, appearance);
+  assert.deepEqual(persisted.params, expected);
+  await runWorker();
+  assert.equal(calls.filter(c => c.path.startsWith("/estimate/")).length, 4);
+  assert.equal(calls.filter(c => !c.path.startsWith("/estimate/")).length, 1);
+  assert.equal(submissions, 1);
+});
+
+test("a Genjutsu job approved before the fidelity change keeps its original quoted payload", async () => {
+  const { parseGenerationRequest } = await import("../lib/payload");
+  const { quoteVideo, confirmedVideo } = await import("../lib/video-pricing");
+  const parsed = parseGenerationRequest(videoInput);
+  const legacy = { ...parsed, prompt: "Old character description", body: { ...parsed.body, prompt: "Old character description" } };
+  const quote = await quoteVideo(legacy);
+  const approval = confirmedVideo(legacy, quote.confirmation);
+  // A newly posted request with an old confirmation must be re-quoted.
+  assert.equal((await generateVideo({ prompt: legacy.prompt, confirmation: quote.confirmation, balanceAcknowledged: true })).status, 409);
+  const state = emptyState();
+  state.jobs.push({ id: "legacy-genjutsu", request_id: null, model_id: parsed.model.id, model_name: parsed.model.name,
+    endpoint: parsed.endpoint, kind: "video", prompt: legacy.prompt, params: legacy.body, batch: 1,
+    est_usd: quote.usd, est_credits: quote.credits, status: "pending", error: null, outputs: [],
+    submitted_at: null, next_poll_at: 0, created_at: Date.now(), updated_at: Date.now(), video_approval: approval });
+  seed(state);
+  const fallback = global.fetch;
+  global.fetch = async (url, init) => {
+    if (new URL(String(url)).hostname === "api.higgsfield.ai") assert.deepEqual(JSON.parse(String(init?.body)), legacy.body);
+    return fallback(url, init);
+  };
+  await runWorker();
+  assert.equal(submissions, 1);
+  assert.deepEqual((await readState()).jobs[0].params, legacy.body);
 });

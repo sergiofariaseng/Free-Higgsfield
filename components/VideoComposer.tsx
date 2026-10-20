@@ -4,6 +4,7 @@ import { defaultParams, maxRefs, modelsByKind, supportsAttachment } from "@/lib/
 import { parameterProblem, videoSummary } from "@/lib/video-capabilities";
 import type { VideoQuote } from "@/lib/video-quote-types";
 import { formatVideoUsd } from "@/lib/video-capabilities";
+import { GENJUTSU_APPEARANCE_LIMIT } from "@/lib/genjutsu-fidelity";
 import GenjutsuInputs, { type MediaReference } from "./GenjutsuInputs";
 import VideoControls from "./VideoControls";
 import VideoCostSummary from "./VideoCostSummary";
@@ -31,6 +32,7 @@ export default function VideoComposer({ onSubmitted }: { onSubmitted: () => void
   const dialog = useRef<HTMLDialogElement>(null);
   const actionLock = useRef(false);
   const transfer = model.referenceMode === "motion-transfer";
+  const promptLimit = transfer ? GENJUTSU_APPEARANCE_LIMIT : 10000;
   const video = refs.find(r => r.kind === "video");
   const imageRefs = refs.filter(r => r.kind === "image");
   const referencesReady = transfer ? Boolean(video) && imageRefs.length >= 1 && imageRefs.length <= 8 : !model.refRequired || refs.length > 0;
@@ -46,7 +48,7 @@ export default function VideoComposer({ onSubmitted }: { onSubmitted: () => void
   const quote = ready ? currentState?.quote ?? null : null;
   const expired = Boolean(quote && quote.expiresAt <= now);
   const loading = ready && (!currentState || expired);
-  const valid = ready && (model.promptOptional || prompt.trim().length > 0) && prompt.length <= 10000;
+  const valid = ready && (model.promptOptional || prompt.trim().length > 0) && prompt.length <= promptLimit;
   const canReview = valid && quote?.usd !== null && Boolean(quote?.confirmation) && !quote?.insufficient && !expired && !checking && !sending;
 
   useEffect(() => {
@@ -123,10 +125,12 @@ export default function VideoComposer({ onSubmitted }: { onSubmitted: () => void
         {transfer ? <GenjutsuInputs refs={refs} setRefs={setRefs} uploading={uploading} setUploading={setUploading} onError={setError} resolution={String(params.resolution)} showPrice={false} /> :
           supportsAttachment(model) ? <VideoReferences model={model} refs={refs} setRefs={setRefs} uploading={uploading} setUploading={setUploading} onError={setError} /> : null}
         <div>
-          <label htmlFor="video-prompt" className="mb-2 block text-sm font-semibold">Descrição <span className="font-normal text-muted">({model.promptOptional ? "opcional" : "obrigatória"})</span></label>
-          <textarea id="video-prompt" value={prompt} maxLength={10000} onChange={e => setPrompt(e.target.value)} rows={3} placeholder={transfer ? "Descreva a transformação de personagens, cenário ou estilo…" : "Descreva a cena, os movimentos e a iluminação…"}
+          <label htmlFor="video-prompt" className="mb-2 block text-sm font-semibold">{transfer ? "Detalhes da aparência" : "Descrição"} <span className="font-normal text-muted">({model.promptOptional ? "opcional" : "obrigatória"})</span></label>
+          {transfer && <p id="genjutsu-fidelity-note" className="mb-3 rounded-xl border border-accent/20 bg-accent/5 p-3 text-xs leading-relaxed text-muted"><span className="font-semibold text-accent">Fidelidade de movimento automática.</span> Todas as gerações recebem instruções para preservar movimentos, gestos, poses, ritmo, sincronização e câmera do vídeo original, alterando apenas a aparência do personagem. Use este campo somente para complementar as imagens de aparência.</p>}
+          <textarea id="video-prompt" value={prompt} maxLength={promptLimit} aria-describedby={transfer ? "genjutsu-fidelity-note" : undefined} onChange={e => setPrompt(e.target.value)} rows={3} placeholder={transfer ? "Detalhes opcionais de rosto, cabelo ou roupa do personagem…" : "Descreva a cena, os movimentos e a iluminação…"}
             className="w-full resize-y rounded-xl border border-edge bg-bg p-3 text-sm leading-relaxed placeholder:text-faint" />
-          <p className="mt-1 text-right text-2xs text-faint">{prompt.length.toLocaleString("pt-BR")} / 10.000</p>
+          <p className="mt-1 text-right text-2xs text-faint">{prompt.length.toLocaleString("pt-BR")} / {promptLimit.toLocaleString("pt-BR")}</p>
+          {prompt.length > promptLimit && <p role="alert" className="mt-2 text-xs text-danger">Reduza o texto para o limite deste modelo antes de gerar.</p>}
         </div>
         <VideoControls model={model} params={params} sourceDuration={video?.duration} onChange={(key, value) => setParams(previous => ({ ...previous, [key]: value }))} />
       </fieldset>
